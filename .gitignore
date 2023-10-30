@@ -1,0 +1,4 @@
+.makefile-mini/
+*.o
+*.lib
+*.a
