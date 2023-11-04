@@ -6,17 +6,21 @@ a.ignoredbinaries:=^test$(MM_EXECUTABLE_EXTENSION)$$
 $(call mm_start,a)
 
 $(call mm_add_library_parameters_t,b)
+b.filetypes:=EMMLibraryfiletype_Static
 b.c:=window_mini.c
 #b.h:=window_mini.h
 $(call mm_add_library,window-mini,b)
 
 $(call mm_add_executable_parameters_t,c)
-c.c:=test
-#c.libraries:=window-mini
-c.lib:=window-mini
-c.hFolders:=./
+c.c:=test.c
+#c.libraries:=window-mini test-mini clock-mini
+c.libraries:=window-mini
+c.lib:=gdi32 test-mini
+c.libFolders:=../test-mini
+c.hFolders:=../test-mini/ ../clock-mini
 # ^
 # to be able to use < and > in #include <window_mini.h>
+c.gcc:=-Wl,--wrap=malloc,--wrap=free,--wrap=main
 $(call mm_add_executable,test,c)
 
 $(call mm_add_test_parameters_t,d)
