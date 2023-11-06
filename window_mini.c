@@ -1133,7 +1133,20 @@ static void remove_info_about_window_xlib(int progress, struct info_about_window
 	}
 }
 #endif
-
+void remove_info_about_window(struct info_about_window_t* a)
+{
+#if defined(_WIN32)
+	remove_info_about_window_win32(EAddInfoAboutWindowWin32Progress_All, a);
+#else //< #elif defined(__linux__)
+	remove_info_about_window_xlib(EAddInfoAboutWindowXlibProgress_All, a);
+#endif
+	
+	if(a->title != NULL)
+	{
+		//delete a->title;
+		free(a->title);
+	}
+}
 int wm_remove_window(int window)
 {
 	if(is_window(window) == 0)
@@ -1145,12 +1158,8 @@ int wm_remove_window(int window)
 
 	struct info_about_window_t* a = &infoPerWindow[window];
 
-#if defined(_WIN32)
-	remove_info_about_window_win32(EAddInfoAboutWindowWin32Progress_All, a);
-#else //< #elif defined(__linux__)
-	remove_info_about_window_xlib(EAddInfoAboutWindowXlibProgress_All, a);
-#endif
-
+	remove_info_about_window(a);
+	
 	if(window == numWindowsTheresRoomFor - 1)
 	{
 		int indexToPreviousWindow = -1;
@@ -1247,6 +1256,11 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		
 		infoAboutPoll.bWasAnyWindowClosed = 1;
 		
+		//remove_info_about_window(infoAboutWindow);
+		// ^
+		// can't call remove_info_about_window here as would call..
+		// .. PeekMessage and GetMessage from MyWndProc
+		
 		// NOTE: see image at..
 		//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
 		//       v
@@ -1263,6 +1277,12 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 				
 				on_printf(stderr, "error: %s in %s\n", b, __FUNCTION__);
 			}
+		}
+		
+		if(infoAboutWindow->title != NULL)
+		{
+			//delete infoAboutWindow->title;
+			free(infoAboutWindow->title);
 		}
 		break;
 	/*

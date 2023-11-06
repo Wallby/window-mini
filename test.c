@@ -195,9 +195,10 @@ int test_3()
 		
 		struct wm_add_window_parameters_t parameters = wm_add_window_parameters_default;
 		struct wm_window_source_t source = wm_window_source_default;
+		source.title = "test 3";
 		
-		source.widthInPixels = 150;
-		source.heightInPixels = 150;
+		source.widthInPixels = 200;
+		source.heightInPixels = 200;
 		
 		int b = wm_add_window(&parameters, &source, &test_3_window);
 		if(b != 1)
