@@ -104,8 +104,10 @@ struct wm_info_about_window_t
 
 //*****************************************************************************
 
-//void(*on_window_closed)(int window);
-void wm_set_on_window_closed(void(*a)(int));
+// NOTE: returns 1 to close the window
+//       returns 0 to not close the window
+//int(*on_window_closed)(int window);
+void wm_set_on_window_closed(int(*a)(int));
 void wm_unset_on_window_closed();
 //void(*on_window_resized)(int window, int widthInPixels, int heightInPixels);
 void wm_set_on_window_resized(void(*a)(int,int,int));

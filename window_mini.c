@@ -589,14 +589,14 @@ static int numWindowsTheresRoomFor = 0;
 static int numWindows = 0;
 static struct info_about_window_t* infoPerWindow;
 
-static void(*on_window_closed)(int window);
+static int(*on_window_closed)(int window);
 static void(*on_window_resized)(int window, int widthInPixels, int heightInPixels);
 static void(*on_window_focused)(int window);
 static void(*on_window_unfocused)(int window);
 
 //*****************************************************************************
 
-void wm_set_on_window_closed(void(*a)(int))
+void wm_set_on_window_closed(int(*a)(int))
 {
 	on_window_closed = a;
 }
@@ -810,6 +810,8 @@ static int add_info_about_window_win32(struct wm_add_window_parameters_t* parame
 		if((source->widthInPixels != -1) | (source->heightInPixels != -1))
 		{
 			RECT e;
+			e.left = 0;
+			e.top = 0;
 			e.right = source->widthInPixels;
 			e.bottom = source->heightInPixels;
 			if(AdjustWindowRect(&e, a, FALSE) == 0)
@@ -1062,6 +1064,11 @@ static void remove_info_about_window_win32(int progress, struct info_about_windo
 {
 	if(progress >= EAddInfoAboutWindowWin32Progress_CreateWindowA)
 	{
+		// NOTE: see image at..
+		//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
+		//       v
+		//       causes WM_DESTROY
+		//       v
 		if(DestroyWindow(a->win32.hwnd.a) == 0)
 		{
 			if(on_print != NULL)
@@ -1071,7 +1078,48 @@ static void remove_info_about_window_win32(int progress, struct info_about_windo
 				char c[b];
 				getlasterror_to_string(&b, c);
 				
-				on_printf(stderr, "warning: %s in %s\n", c, __FUNCTION__);
+				on_printf(stdout, "warning: %s in %s\n", c, __FUNCTION__);
+			}
+		}
+		
+		MSG b;
+		//BOOL c = GetMessage(&b, a->win32.hwnd.a, WM_DESTROY, WM_DESTROY);
+		// NOTE: ^
+		//       "During the processing of [WM_DESTROY], it can be assumed..
+		//       .. that all child windows still exist.",..
+		//       .. https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-destroy
+		//       ^
+		//       tested above, but causes error "Invalid window handle."
+		// NOTE: not sure if loop is required here, but to be safe in case..
+		//       .. it is possible for a rogue WM_DESTROY (or multiple) to..
+		//       .. be lingering here
+		//       v
+		while(PeekMessage(&b, NULL, WM_DESTROY, WM_DESTROY, PM_NOREMOVE) != 0)
+		{
+			BOOL c = GetMessage(&b, NULL, WM_DESTROY, WM_DESTROY);
+			if(c <= 0)
+			{
+				if(c == -1)
+				{
+					if(on_print != NULL)
+					{
+						int d;
+						getlasterror_to_string(&d, NULL);
+						char e[d];
+						getlasterror_to_string(&d, e);
+						
+						on_printf(stdout, "warning: %s in %s\n", e, __FUNCTION__);
+					}
+				}
+				else
+				{
+					// WM_QUIT
+					
+					if(on_print != NULL)
+					{
+						on_printf(stdout, "warning: WM_QUIT received which window-mini does not support in %s\n", __FUNCTION__);
+					}
+				}
 			}
 		}
 	}
@@ -1153,11 +1201,13 @@ static int should_window_be_resized(struct info_about_window_t* infoAboutWindow)
 	return bWidthIsDifferent | bHeightIsDifferent;
 }
 
+static struct
+{
+	int bWasAnyWindowClosed; //< at the end of wm_poll if bWasAnyWindowClosed == 1.. will update numWindowsTheresRoomFor, numWindows and infoPerWindow
+} infoAboutPoll;
 #if defined(_WIN32)
 static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	//printf("uMsg == %u\n", uMsg);
-
 	int window = -1;
 	for(int i = 0; i < numWindowsTheresRoomFor; ++i)
 	{
@@ -1169,6 +1219,7 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		if(infoPerWindow[i].win32.hwnd.a == hwnd)
 		{
 			window = i;
+			break;
 		}
 	}
 	if(window == -1)
@@ -1180,24 +1231,68 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	
 	switch(uMsg)
 	{
-	case WM_DESTROY:
-		PostQuitMessage(0);
+	case WM_CLOSE:
+		// must be done here as after GetMessage a.hwnd will == NULL thus..
+		// .. cannot determine which window was closed there
+		// v
+		if(on_window_closed != NULL)
+		{
+			if(on_window_closed(window) == 0)
+			{
+				break;
+			}
+		}
+		
+		infoAboutWindow->source = NULL;
+		
+		infoAboutPoll.bWasAnyWindowClosed = 1;
+		
+		// NOTE: see image at..
+		//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
+		//       v
+		//       causes WM_DESTROY
+		//       v
+		if(DestroyWindow(hwnd) == 0)
+		{
+			if(on_print != NULL)
+			{
+				int a;
+				getlasterror_to_string(&a, NULL);
+				char b[a];
+				getlasterror_to_string(&a, b);
+				
+				on_printf(stderr, "error: %s in %s\n", b, __FUNCTION__);
+			}
+		}
 		break;
+	/*
+	case WM_DESTROY:
+		//PostQuitMessage(0);
+		// NOTE: ^
+		//       don't call PostQuitMessage as "PostQuitMessage puts a..
+		//       .. WM_QUIT message on the message queue, causing the..
+		//       .. message loop to end",..
+		//       .. https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
+		break;
+		// NOTE: ^
+		//       processing WM_DESTROY is not required as close from GUI is..
+		//       .. handled using WM_CLOSE and doesn't require processing..
+		//       .. WM_DESTROY and close from code doesn't require..
+		//       .. processing WM_CLOSE nor WM_DESTROY
+	*/
 	case WM_ACTIVATE:
 		if(LOWORD(wParam) == WA_INACTIVE)
 		{
-			//infoAboutWindow->bIsFocused = 1;
-			if(on_window_focused != NULL)
+			if(on_window_unfocused != NULL)
 			{
-				on_window_focused(window);
+				on_window_unfocused(window);
 			}
 		}
 		else
 		{
-			//infoAboutWindow->bIsFocused = 0;
-			if(on_window_unfocused != NULL)
+			if(on_window_focused != NULL)
 			{
-				on_window_unfocused(window);
+				on_window_focused(window);
 			}
 		}
 		break;
@@ -1213,7 +1308,6 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		switch(wParam)
 		{
 		case SIZE_MINIMIZED:
-			//infoAboutWindow->bIsFocused = 0;
 			infoAboutWindow->bIsMinimized = 1;
 			break;
 		case SIZE_MAXIMIZED:
@@ -1226,7 +1320,6 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		case SIZE_RESTORED:
 			if(infoAboutWindow->bIsMinimized == 1)
 			{
-				//infoAboutWindow->bIsFocused = 1;
 				infoAboutWindow->bIsMinimized = 0;
 			}
 			else if(infoAboutWindow->bIsMaximized == 1)
@@ -1253,7 +1346,6 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		break;
 	case WM_ENTERSIZEMOVE:
 		infoAboutWindow->bIsResizing = 1;
-		fputs("bIsResizing == 1\n", stdout);
 		break;
 	case WM_EXITSIZEMOVE:
 		// NOTE: not sure whether this makes sense here as only WM_SIZE can..
@@ -1262,10 +1354,8 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		if(should_window_be_resized(infoAboutWindow) == 1)
 		{
 			infoAboutWindow->bResize = 1;
-			fputs("bResize == 1\n", stdout);
 		}
 		infoAboutWindow->bIsResizing = 0;
-		fputs("bIsResizing == 0\n", stdout);
 		break;
 	case WM_GETMINMAXINFO:
 		// https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-minmaxinfo
@@ -1373,8 +1463,6 @@ static void my_on_xevent(int window, XEvent a)
 }
 #endif
 
-static int bWasAnyWindowClosed;
-
 #if defined(_WIN32)
 static void poll_win32()
 {
@@ -1394,7 +1482,14 @@ static void poll_win32()
 		// .. https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmessage
 		BOOL b = GetMessage(&a, NULL, 0, 0);
 		
-		int window;
+		int window = -1;
+		// NOTE: ^
+		//       possible that a.hwnd != NULL but window == -1 if the window..
+		//       .. was closed from GUI?
+		//       ^
+		//       caused exit with -1073741819 which is C0000005 in 32-bit..
+		//       .. hex which is STATUS_ACCESS_VIOLATION,..
+		//       .. https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55
 		struct info_about_window_t* infoAboutWindow;
 		if(a.hwnd != NULL)
 		{
@@ -1437,28 +1532,21 @@ static void poll_win32()
 				// not sure if should break here?
 			}
 			
-			if(a.hwnd != NULL)
+			// WM_QUIT
+			
+			if(on_print != NULL)
 			{
-				if(on_window_closed != NULL)
-				{
-					on_window_closed(window);
-				}
-				infoAboutWindow->source = NULL;
-				
-				bWasAnyWindowClosed = 1;
-				continue;
+				on_printf(stdout, "warning: WM_QUIT received which window-mini does not support in %s\n", __FUNCTION__);
 			}
 		}
 		
-		if(a.hwnd != NULL)
+		if(window != -1)
 		{
 			if(infoAboutWindow->bResize == 1)
 			{
-				fputs("bResize == 1 detected\n", stdout);
 				if(on_window_resized != NULL)
 				{
 					on_window_resized(window, infoAboutWindow->ifResizing.newWidthInPixels, infoAboutWindow->ifResizing.newHeightInPixels);
-					fputs("on_window_resized\n", stdout);
 				}
 				infoAboutWindow->widthInPixels = infoAboutWindow->ifResizing.newWidthInPixels;
 				infoAboutWindow->heightInPixels = infoAboutWindow->ifResizing.newHeightInPixels;
@@ -1510,11 +1598,14 @@ static void poll_xlib()
 			{
 				if(on_window_closed != NULL)
 				{
-					on_window_closed(window);
+					if(on_window_closed(window) == 0)
+					{
+						// TODO: cancel closing window
+					}
 				}
 				infoAboutWindow->source = NULL;
 				
-				bWasAnyWindowClosed = 1;
+				infoAboutPoll.bWasAnyWindowClosed = 1;
 				continue;
 			}
 			if(infoAboutWindow->bResize == 1)
@@ -1541,7 +1632,7 @@ int wm_poll()
 		return -1;
 	}
 	
-	bWasAnyWindowClosed = 0;
+	infoAboutPoll.bWasAnyWindowClosed = 0;
 
 #if defined(_WIN32)
 	poll_win32();
@@ -1549,7 +1640,7 @@ int wm_poll()
 	poll_xlib();
 #endif
 
-	if(bWasAnyWindowClosed == 1)
+	if(infoAboutPoll.bWasAnyWindowClosed == 1)
 	{
 		// NOTE: not required to call DestroyWindow/XDestroyWindow as window..
 		//       .. is automatically done?
