@@ -143,6 +143,12 @@ enum
 	EWMEditWindowIf_TitleIsDifferent = 8,
 	EWMEditWindowIf_FullscreenWasChanged = 16
 };
+#define EWMEditWindowIf_Always \
+	EWMEditWindowIf_MinWidthAndOrMinHeightIsDifferent | \
+	EWMEditWindowIf_MaxWidthAndOrMaxHeightIsDifferent | \
+	EWMEditWindowIf_WidthAndOrHeightIsDifferent | \
+	EWMEditWindowIf_TitleIsDifferent | \
+	EWMEditWindowIf_FullscreenWasChanged
 
 // NOTE: returns 1 if succeeded
 //       returns 0 if failed
