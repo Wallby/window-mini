@@ -6,6 +6,33 @@ void on_print(char* a, FILE* b)
 	fputs(a, b);
 }
 
+// "Window" is already in use by xlib thus instead "MyWindow"
+// v
+class MyWindow : WMWindow
+{
+public:
+	virtual bool on_closed() override
+	{
+		//...
+		
+		return true;
+	}
+	virtual void on_focused() override
+	{
+		//...
+	}
+	virtual void on_unfocused() override
+	{
+		//...
+	}
+	virtual void on_resized(int widthInPixels, int heightInPixels) override
+	{
+		//...
+	
+		WMWindow::on_resized(widthInPixels, heightInPixels);
+	}
+};
+
 enum
 {
 	EProgress_WindowMiniLoaded = 1,

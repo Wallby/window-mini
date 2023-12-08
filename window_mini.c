@@ -1064,12 +1064,23 @@ static void remove_info_about_window_win32(int progress, struct info_about_windo
 {
 	if(progress >= EAddInfoAboutWindowWin32Progress_CreateWindowA)
 	{
+		// NOTE: tested and WM_ACTIVATE was sent in DestroyWindow which..
+		//       .. caused on_focused callback to be called, to prevent this..
+		//       .. set a->win32.hwnd.a to NULL to cause window == -1 in..
+		//       .. MyWndProc and thus uMsg to be ignored
+		//       v
+		struct
+		{
+			HWND a;
+		} hwnd = { .a = a->win32.hwnd.a };
+		a->win32.hwnd.a = NULL;
+		
 		// NOTE: see image at..
 		//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
 		//       v
 		//       causes WM_DESTROY
 		//       v
-		if(DestroyWindow(a->win32.hwnd.a) == 0)
+		if(DestroyWindow(hwnd.a) == 0)
 		{
 			if(on_print != NULL)
 			{
@@ -1082,8 +1093,12 @@ static void remove_info_about_window_win32(int progress, struct info_about_windo
 			}
 		}
 		
+		// tested and DestroyWindow called MyWndProc with WM_DESTROY thus..
+		// .. below should not be required
+		// v
+		/*
 		MSG b;
-		//BOOL c = GetMessage(&b, a->win32.hwnd.a, WM_DESTROY, WM_DESTROY);
+		//BOOL c = GetMessage(&b, hwnd.a, WM_DESTROY, WM_DESTROY);
 		// NOTE: ^
 		//       "During the processing of [WM_DESTROY], it can be assumed..
 		//       .. that all child windows still exist.",..
@@ -1122,6 +1137,7 @@ static void remove_info_about_window_win32(int progress, struct info_about_windo
 				}
 			}
 		}
+		*/
 	}
 }
 #else //< #elif defined(__linux__)
@@ -1217,6 +1233,8 @@ static struct
 #if defined(_WIN32)
 static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	//printf("MyWndProc %i, %u, %i, %i\n", hwnd, uMsg, wParam, lParam);
+
 	int window = -1;
 	for(int i = 0; i < numWindowsTheresRoomFor; ++i)
 	{
@@ -1231,6 +1249,7 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			break;
 		}
 	}
+	//printf("window == %i\n", window);
 	if(window == -1)
 	{
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -1258,8 +1277,10 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		
 		//remove_info_about_window(infoAboutWindow);
 		// ^
-		// can't call remove_info_about_window here as would call..
-		// .. PeekMessage and GetMessage from MyWndProc
+		// would work, but still not sure if DestroyWindow call..
+		// .. functionality changes if called from MyWndProc or not
+		// code here is based on this reference..
+		// .. https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
 		
 		// NOTE: see image at..
 		//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
