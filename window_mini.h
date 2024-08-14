@@ -1,6 +1,8 @@
 #ifndef WINDOW_MINI_H
 #define WINDOW_MINI_H
 
+#define WINDOW_MINI_VERSION 0.1
+
 #include <stdio.h>
 
 #if defined(_WIN32)
