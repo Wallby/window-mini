@@ -1,4 +1,5 @@
-#include "window_mini.hpp"
+#include <window_mini.hpp>
+#include <clock_mini.h>
 
 
 void on_print(char* a, FILE* b)
@@ -73,7 +74,28 @@ int main(int argc, char** argv)
 			fputs("error: !window\n", stderr);
 			break;
 		}
-		
+
+		int bSuccess = 1;
+
+		double a = cm_get_seconds();
+		double b = a;
+		while(b - a < 0.5f)
+		{
+			int d = wm_poll();
+			if(d != 1)
+			{
+				fprintf(stderr, "error: wm_poll() != 1 (wm_poll == %i)\n", d);
+				bSuccess = 0;
+				break;
+			}
+
+			b = cm_get_seconds();
+		}
+		if(bSuccess == 0)
+		{
+			break;
+		}
+				
 		window.widthInPixels = 100;
 		window.heightInPixels = 100;
 		if(!window.edit())
@@ -81,7 +103,17 @@ int main(int argc, char** argv)
 			fputs("error: !window.edit()\n", stderr);
 			break;
 		}
-		
+
+		int c = wm_poll();
+		if(c != 1)
+		{
+			fprintf(stderr, "error: wm_poll() != 1 (wm_poll == %i)\n", c);
+			break;
+		}
+		// NOTE: ^
+		//       currently won't result in call of on_window_resized as..
+		//       .. wm_edit_window is not implemented 
+
 		progress = EProgress_All;
 	} while(0);
 	if(progress >= EProgress_WindowMiniLoaded)

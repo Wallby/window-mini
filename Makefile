@@ -8,22 +8,27 @@ $(call mm_start,a)
 $(call mm_add_library_parameters_t,b)
 b.filetypes:=EMMLibraryfiletype_Static
 b.c:=window_mini.c
-#b.h:=window_mini.h
+b.h:=window_mini.h
 $(call mm_add_library,window-mini,b)
 
 $(call mm_add_library_parameters_t,c)
 c.filetypes:=EMMLibraryfiletype_Static
 c.c:=window_mini.c
 c.cpp:=window_mini.cpp
-#c.h:=window_mini.h
-#c.hpp:=window_mini.hpp
+c.h:=window_mini.h
+c.hpp:=window_mini.hpp
 $(call mm_add_library,window-mini2,c)
 
 $(call mm_add_executable_parameters_t,d)
 d.c:=test.c
-#d.libraries:=window-mini test-mini clock-mini
+#d.libraries:=window-mini test-mini: clock-mini:
 d.libraries:=window-mini
-d.lib:=gdi32 test-mini
+d.lib:=test-mini
+ifeq ($(MM_OS),windows)
+d.lib+=gdi32
+else #< else ifeq ($(MM_OS),chromeos)
+d.lib+=X11
+endif
 d.libFolders:=../test-mini
 d.hFolders:=../test-mini/ ../clock-mini
 # ^
@@ -33,8 +38,15 @@ $(call mm_add_executable,test1,d)
 
 $(call mm_add_executable_parameters_t,e)
 e.cpp:=test.cpp
+#e.libraries:=window-mini2 clock-mini:
 e.libraries:=window-mini2
-e.lib:=gdi32
+e.lib:=
+ifeq ($(MM_OS),windows)
+e.lib+=gdi32
+else #< else ifeq ($(MM_OS),chromeos)
+e.lib+=X11
+endif
+e.hppFolders:=../clock-mini/
 $(call mm_add_executable,test2,e)
 
 $(call mm_add_test_parameters_t,f)

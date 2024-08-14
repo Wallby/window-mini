@@ -1,9 +1,13 @@
 #include "window_mini.h"
 
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+
 #if defined(_WIN32)
 //...
 #elif defined(__linux__)
-//...
+#include <X11/extensions/XInput2.h>
 #else
 #error "unsupported os"
 #endif
@@ -366,7 +370,7 @@ static int load_xlib()
 		//       ^
 		//       not sure if any other cause than memory allocation failure..
 		//       .. can cause XInternAtom to return None here
-		if(wmdeletewindow.a = None)
+		if(wmdeletewindow.a == None)
 		{
 			break;
 		}
@@ -392,7 +396,7 @@ static int load_xlib()
 	if(progress != ELoadXlibProgress_All)
 	{
 		struct xlib_t a;
-		a.display = display.a;
+		a.display.a = display.a;
 		unload_xlib(progress, &a);
 		
 		return 0;
@@ -511,7 +515,7 @@ int wm_get_info(struct wm_info_t* info)
 #if defined(_WIN32)
 	info->win32.hinstance.a = win32.hinstance.a;
 #else //< #elif defined(__linux__)
-	info->xlib.display.a = win32.xlib.display.a;
+	info->xlib.display.a = xlib.display.a;
 #endif
 	
 	return 1;
@@ -630,7 +634,7 @@ void wm_unset_on_window_unfocused()
 }
 
 #ifdef __linux__
-int toggle_fullscreen(struct info_about_window_t* infoAboutWindow);
+static int toggle_fullscreen(struct info_about_window_t* infoAboutWindow);
 #endif
 // NOTE: assumes..
 //       .. infoAboutWindow->bFullscreen == 0
@@ -886,7 +890,8 @@ enum
 };
 #define EAddInfoAboutWindowXlibProgress_All EAddInfoAboutWindowXlibProgress_XSetWMProtocols
 
-static int add_info_about_window_xlib(struct wm_add_window_parameters_t* parameters, struct wm_window_source_t* source, struct info_about_window_t* a)
+static void remove_info_about_window_xlib(int progress, struct info_about_window_t* a);
+static int add_info_about_window_xlib(struct wm_add_window_parameters_t* parameters, struct wm_window_source_t* source, struct info_about_window_t* infoAboutWindow)
 {
 	struct
 	{
@@ -936,7 +941,7 @@ static int add_info_about_window_xlib(struct wm_add_window_parameters_t* paramet
 		{
 			if(on_print != NULL)
 			{
-				on_printf("error: XSetWMProtocols == 0 in %s\n", __FUNCTION__);
+				on_printf(stderr, "error: XSetWMProtocols == 0 in %s\n", __FUNCTION__);
 			}
 			break;
 		}
@@ -1217,6 +1222,62 @@ int wm_get_info_about_window(int window, struct wm_info_about_window_t* infoAbou
 	return 1;
 }
 
+#if defined(_WIN32)
+void close_info_about_window_win32(struct info_about_window_t* a)
+{
+	// not sure if DestroyWindow call functionality changes if called from..
+	// .. MyWndProc or not
+	// code here is based on this reference..
+	// .. https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
+	
+	// NOTE: see image at..
+	//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
+	//       v
+	//       causes WM_DESTROY
+	//       v
+	if(DestroyWindow(hwnd) == 0)
+	{
+		if(on_print != NULL)
+		{
+			int a;
+			getlasterror_to_string(&a, NULL);
+			char b[a];
+			getlasterror_to_string(&a, b);
+			
+			on_printf(stderr, "error: %s in %s\n", b, __FUNCTION__);
+		}
+	}
+}
+#else //< #elif defined(__linux__)
+void close_info_about_window_chromeos(struct info_about_window_t* a)
+{
+	XDestroyWindow(xlib.display.a, a->xlib.window.a);
+	// ^
+	// not sure if this is required/intended to be called here
+	// can't find anything on..
+	// .. https://www.x.org/releases/X11R7.5/doc/man/man3/XDestroyWindow.3.html
+	// I tested it and it worked without error with and without calling..
+	// .. XDestroyWindow here, hence leaving it
+}
+#endif
+// NOTE: only called from wm_poll if the window is closed from gui
+void close_info_about_window(struct info_about_window_t* a)
+{
+#if defined(_WIN32)
+	close_info_about_window_win32(a);
+#else //< #elif defined(__linux__)
+	close_info_about_window_chromeos(a);
+#endif
+
+	if(a->title != NULL)
+	{
+		//delete a->title;
+		free(a->title);
+	}
+	
+	a->source = NULL; //< for wm_poll to figure out which window(s) was/were closed
+}
+
 //*****************************************************************************
 
 static int should_window_be_resized(struct info_about_window_t* infoAboutWindow)
@@ -1271,40 +1332,8 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			}
 		}
 		
-		infoAboutWindow->source = NULL;
-		
+		close_info_about_window(infoAboutWindow);
 		infoAboutPoll.bWasAnyWindowClosed = 1;
-		
-		//remove_info_about_window(infoAboutWindow);
-		// ^
-		// would work, but still not sure if DestroyWindow call..
-		// .. functionality changes if called from MyWndProc or not
-		// code here is based on this reference..
-		// .. https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
-		
-		// NOTE: see image at..
-		//       https://learn.microsoft.com/en-us/windows/win32/learnwin32/closing-the-window
-		//       v
-		//       causes WM_DESTROY
-		//       v
-		if(DestroyWindow(hwnd) == 0)
-		{
-			if(on_print != NULL)
-			{
-				int a;
-				getlasterror_to_string(&a, NULL);
-				char b[a];
-				getlasterror_to_string(&a, b);
-				
-				on_printf(stderr, "error: %s in %s\n", b, __FUNCTION__);
-			}
-		}
-		
-		if(infoAboutWindow->title != NULL)
-		{
-			//delete infoAboutWindow->title;
-			free(infoAboutWindow->title);
-		}
 		break;
 	/*
 	case WM_DESTROY:
@@ -1428,12 +1457,24 @@ static LRESULT CALLBACK MyWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	return 0;
 }
 #else //< #elif defined(__linux__)
+static void my_on_xievent(int window, XIEvent* a)
+{
+	switch(a->evtype) //< == xevent.a.xcookie.evtype
+	{
+	case XI_KeyPress:
+	case XI_KeyRelease:
+		{
+			//...
+		}
+		break;
+	}
+}
+// NOTE: int window not "struct info_about_window_t* infoAboutWindow"..
+//       .. because e.g. on_window_focused required window
 static void my_on_xevent(int window, XEvent a)
 {
 	struct info_about_window_t* infoAboutWindow = &infoPerWindow[window];
 
-	// NOTE: grabbing border for resizing window causes FocusOut on mouse..
-	//       .. button down + FocusIn on mouse button up
 	if((XGetEventData(xlib.display.a, &a.xcookie) != False) & (a.xcookie.type == GenericEvent))
 	{
 		struct
@@ -1441,10 +1482,12 @@ static void my_on_xevent(int window, XEvent a)
 			XIEvent* a;
 		} xievent;
 		xievent.a = (XIEvent*)a.xcookie.data;
-		my_on_xievent(xievent.a);
+		my_on_xievent(window, xievent.a);
 	}
 	XFreeEventData(xlib.display.a, &a.xcookie);
 
+	// NOTE: grabbing border for resizing window causes FocusOut on mouse..
+	//       .. button down + FocusIn on mouse button up
 	switch(a.type)
 	{
 	case ClientMessage:
@@ -1492,7 +1535,6 @@ static void my_on_xevent(int window, XEvent a)
 		}
 		break;
 	case FocusOut:
-		infoAboutWindow->bUnfocus = 1;
 		if(on_window_unfocused != NULL)
 		{
 			on_window_unfocused(window);
@@ -1565,7 +1607,7 @@ static void poll_win32()
 										
 					on_printf(stdout, "warning: %s in %s\n", e, __FUNCTION__);
 					// ^
-					// warning here as assuming this doesn't persé mean..
+					// warning here as assuming this doesn't per se mean..
 					// .. program exit?
 				}
 				break;
@@ -1634,24 +1676,31 @@ static void poll_xlib()
 				continue;
 			}
 
-			my_on_xevent(xevent.a);
+			struct info_about_window_t* infoAboutWindow = &infoPerWindow[window];
+
+			my_on_xevent(window, xevent.a);
 			if(infoAboutWindow->bClose == 1)
 			{
 				if(on_window_closed != NULL)
 				{
 					if(on_window_closed(window) == 0)
 					{
-						// TODO: cancel closing window
+						infoAboutWindow->bClose = 0;
 					}
 				}
-				infoAboutWindow->source = NULL;
-				
-				infoAboutPoll.bWasAnyWindowClosed = 1;
-				continue;
+				if(infoAboutWindow->bClose == 1) //< close wasn't canceled
+				{
+					close_info_about_window(infoAboutWindow);
+					infoAboutPoll.bWasAnyWindowClosed = 1;
+					continue;
+				}
 			}
 			if(infoAboutWindow->bResize == 1)
 			{
-				on_window_resized(window, infoAboutWindow->ifResizing.newWidthInPixels, infoAboutWindow->ifResizing.newHeightInPixels);
+				if(on_window_resized != NULL)
+				{
+					on_window_resized(window, infoAboutWindow->ifResizing.newWidthInPixels, infoAboutWindow->ifResizing.newHeightInPixels);
+				}
 				infoAboutWindow->widthInPixels = infoAboutWindow->ifResizing.newWidthInPixels;
 				infoAboutWindow->heightInPixels = infoAboutWindow->ifResizing.newHeightInPixels;
 				infoAboutWindow->bResize = 0;

@@ -2,6 +2,9 @@
 #define protected public
 #include "window_mini.hpp"
 
+#include <cstdlib>
+#include <cstring>
+
 
 // NOTE: assumes..
 //       .. numElementsToAppend > 0
@@ -102,10 +105,10 @@ static void register_window(WMWindow* window)
 	}
 	else
 	{
-		add_or_append_element2(&numWindowsTheresRoomFor, &windows, window);
+		add_or_append_element2(&numWindowsTheresRoomFor, &windows, &window);
 	}
 	
-	++numWindowsTheresRoomFor;
+	++numWindows;
 }
 // NOTE: possible to use "int window" here as using exact same algorithm for..
 //       .. registering as is used in wm_add_window in window_mini.c
