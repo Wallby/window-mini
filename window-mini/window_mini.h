@@ -82,18 +82,10 @@ struct wm_info_about_window_t
 		{
 			HWND a;
 		} hwnd;
-		struct
-		{
-			HINSTANCE a;
-		} hinstance;
 	} win32;
 #else //< #elif defined(__linux__)
 	struct
 	{
-		struct
-		{
-			Display* a;
-		} display;
 		struct
 		{
 			Window a;
