@@ -38,15 +38,17 @@ $(call mm_add_executable,test1,d)
 
 $(call mm_add_executable_parameters_t,e)
 e.cpp:=test.cpp
-#e.libraries:=window-mini2 clock-mini:
+#e.libraries:=window-mini2 clock-mini: test-mini:
 e.libraries:=window-mini2
-e.lib:=
+e.lib:=test-mini
 ifeq ($(MM_OS),windows)
 e.lib+=gdi32
 else #< else ifeq ($(MM_OS),chromeos)
 e.lib+=X11
 endif
-e.hppFolders:=../clock-mini/
+e.libFolders:=../test-mini/
+e.hppFolders:=../clock-mini/ ../test-mini/
+e.gccOrG++:=-Wl,--wrap=malloc,--wrap=free,--wrap=main
 $(call mm_add_executable,test2,e)
 
 $(call mm_add_test_parameters_t,f)

@@ -1,5 +1,6 @@
 #include <window_mini.hpp>
 #include <clock_mini.h>
+#include <test_mini.h>
 
 
 void on_print(char* a, FILE* b)
@@ -50,7 +51,7 @@ int main(int argc, char** argv)
 		if(wm_load() != 1)
 		{
 			fputs("error: wm_load() != 1\n", stderr);
-			return 1;
+			break;
 		}
 		progress = EProgress_WindowMiniLoaded;
 
