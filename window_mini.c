@@ -1235,7 +1235,7 @@ void close_info_about_window_win32(struct info_about_window_t* a)
 	//       v
 	//       causes WM_DESTROY
 	//       v
-	if(DestroyWindow(hwnd) == 0)
+	if(DestroyWindow(a->win32.hwnd.a) == 0)
 	{
 		if(on_print != NULL)
 		{
