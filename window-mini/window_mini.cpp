@@ -1,5 +1,7 @@
+#ifndef _MSC_VER //< MSVC doesn't allow redefining private and protected
 #define private public
 #define protected public
+#endif
 #include "window_mini.hpp"
 
 #include <cstdlib>
@@ -52,32 +54,95 @@ static void remove_last_num_elements(int elementSize, int* numElements, void** e
 
 //*****************************************************************************
 
+#undef wm_load
+extern "C" int wm_load();
+bool wm_load2()
+{
+	return wm_load() == 1;
+}
+
+#undef wm_unload
+extern "C" int wm_unload();
+bool wm_unload2()
+{
+	return wm_unload() == 1;
+}
+
+//*****************************************************************************
+
 static int numWindowsTheresRoomFor = 0;
 static int numWindows = 0;
 static WMWindow** windows;
 
+#ifdef _MSC_VER
+int* get_window(WMWindow& window)
+{
+	return (int*)(&window.win32 + 1); //< i.e. &.win32 + sizeof .win32
+}
+class WMWindow2 : public WMWindow
+{
+public:
+	bool on_closed2()
+	{
+		return on_closed();
+	}
+	void on_focused2()
+	{
+		on_focused();
+	}
+	void on_unfocused2()
+	{
+		on_unfocused();
+	}
+	void on_resized2(int widthInPixels, int heightInPixels)
+	{
+		on_resized(widthInPixels, heightInPixels);
+	}
+};
+#endif
+
 static void unregister_window(int window);
 static int on_window_closed(int window)
 {
+#ifdef _MSC_VER
+	bool a = ((WMWindow2*)windows[window])->on_closed2();
+#else
 	bool a = windows[window]->on_closed();
-	
+#endif
+
 	unregister_window(window);
 	
+#ifdef _MSC_VER
+	*get_window(*windows[window]) = -1;
+#else
 	windows[window]->window = -1;
+#endif
 	
 	return a ? 1 : 0;
 }
 static void on_window_focused(int window)
 {
+#ifdef _MSC_VER
+	((WMWindow2*)windows[window])->on_focused2();
+#else
 	windows[window]->on_focused();
+#endif
 }
 static void on_window_unfocused(int window)
 {
+#ifdef _MSC_VER
+	((WMWindow2*)windows[window])->on_unfocused2();
+#else
 	windows[window]->on_unfocused();
+#endif
 }
 static void on_window_resized(int window, int widthInPixels, int heightInPixels)
 {
+#ifdef _MSC_VER
+	((WMWindow2*)windows[window])->on_resized2(widthInPixels, heightInPixels);
+#else
 	windows[window]->on_resized(widthInPixels, heightInPixels);
+#endif
 }
 
 static void register_window(WMWindow* window)

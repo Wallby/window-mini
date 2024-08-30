@@ -68,7 +68,7 @@ static void getlasterror_to_string(int* a, char* b)
 	// NOTE: currently assuming US English is always available (I have no..
 	//       .. proof whether or not this is so)
 	//       v
-	if(FormatMessageA(FORMAT_MESSAGE_MAX_WIDTH_MASK | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, NULL, c, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), (LPTSTR)&d, 0, NULL) != 0)
+	if(FormatMessageA(FORMAT_MESSAGE_MAX_WIDTH_MASK | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, NULL, c, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), (LPSTR)&d, 0, NULL) != 0)
 	{
 		if(b == NULL)
 		{
@@ -143,13 +143,16 @@ static void on_printf(FILE* a, char* b, ...)
 	
 	int d = vsnprintf(NULL, 0, b, c);
 	
-	char e[d + 1];
+	//char e[d + 1];
+	char* e = malloc(d + 1);
 	
 	vsprintf(e, b, c);
 	
 	va_end(c);
 	
 	on_print(e, a);
+
+	free(e);
 }
 
 //*****************************************************************************
@@ -167,7 +170,7 @@ void wm_unset_on_print()
 enum
 {
 	ELoadWin32Progress_RegisterClassADefault = 1,
-	ELoadWin32Progress_RegisterClassAOpengl = 2
+	ELoadWin32Progress_RegisterClassAOpengl
 };
 #define ELoadWin32Progress_All ELoadWin32Progress_RegisterClassAOpengl
 
@@ -215,10 +218,12 @@ static int load_win32()
 			{
 				int c;
 				getlasterror_to_string(&c, NULL);
-				char d[c];
+				//char d[c];
+				char* d = malloc(c);
 				getlasterror_to_string(&c, d);
 
 				on_printf(stderr, "error: %s in %s\n", d, __FUNCTION__);
+				free(d);
 			}
 			
 			break;
@@ -228,7 +233,7 @@ static int load_win32()
 		
 		// https://www.khronos.org/opengl/wiki/Creating_an_OpenGL_Context_(WGL)
 		
-		WNDCLASS b;
+		WNDCLASSA b;
 		b.style = CS_OWNDC;
 		b.lpfnWndProc = &MyWndProc;
 		b.cbClsExtra = 0;
@@ -246,10 +251,12 @@ static int load_win32()
 			{
 				int c;
 				getlasterror_to_string(&c, NULL);
-				char d[c];
+				//char d[c];
+				char* d = malloc(c);
 				getlasterror_to_string(&c, d);
 				
 				on_printf(stderr, "error: %s in %s\n", d, __FUNCTION__);
+				free(d);
 			}
 			
 			break;
@@ -280,10 +287,12 @@ static void unload_win32(int progress, struct win32_t* a)
 			{
 				int b;
 				getlasterror_to_string(&b, NULL);
-				char c[b];
+				//char c[b];
+				char* c = malloc(b);
 				getlasterror_to_string(&b, c);
 				
 				on_printf(stdout, "warning: %s in %s\n", c, __FUNCTION__);
+				free(c);
 			}
 		}
 	}
@@ -295,10 +304,12 @@ static void unload_win32(int progress, struct win32_t* a)
 			{
 				int b;
 				getlasterror_to_string(&b, NULL);
-				char c[b];
+				//char c[b];
+				char* c = malloc(b);
 				getlasterror_to_string(&b, c);
 				
 				on_printf(stdout, "warning: %s in %s\n", c, __FUNCTION__);
+				free(c);
 			}
 		}
 	}
@@ -307,10 +318,10 @@ static void unload_win32(int progress, struct win32_t* a)
 enum
 {
 	ELoadXlibProgress_XInitThreads = 1,
-	ELoadXlibProgress_XOpenDisplay = 2,
-	ELoadXlibProgress_XInternAtomWmdeletewindow = 3,
-	ELoadXlibProgress_XInternAtomNetwmstate = 4,
-	ELoadXlibProgress_XInternAtomNetwmstatefullscreen = 5
+	ELoadXlibProgress_XOpenDisplay,
+	ELoadXlibProgress_XInternAtomWmdeletewindow,
+	ELoadXlibProgress_XInternAtomNetwmstate,
+	ELoadXlibProgress_XInternAtomNetwmstatefullscreen
 };
 #define ELoadXlibProgress_All ELoadXlibProgress_XInternAtomNetwmstatefullscreen
 
@@ -648,10 +659,12 @@ static int start_fullscreen(struct info_about_window_t* infoAboutWindow)
 	{
 		int c;
 		getlasterror_to_string(&c, NULL);
-		char d[c];
+		//char d[c];
+		char* d = malloc(c);
 		getlasterror_to_string(&c, d);
 		
 		on_printf(stdout, "warning: %s in %s\n", d, __FUNCTION__);
+		free(d);
 		
 		return 0;
 	}
@@ -667,10 +680,12 @@ static int start_fullscreen(struct info_about_window_t* infoAboutWindow)
 		
 		int c;
 		getlasterror_to_string(&c, NULL);
-		char d[c];
+		//char d[c];
+		char* d = malloc(c);
 		getlasterror_to_string(&c, d);
 		
 		on_printf(stdout, "warning: %s in %s\n", d, __FUNCTION__);
+		free(d);
 		
 		return 0;
 	}
@@ -824,10 +839,12 @@ static int add_info_about_window_win32(struct wm_add_window_parameters_t* parame
 				{
 					int f;
 					getlasterror_to_string(&f, NULL);
-					char g[f];
+					//char g[f];
+					char* g = malloc(f);
 					getlasterror_to_string(&f, g);
 					
 					on_printf(stdout, "warning: %s in %s\n", g, __FUNCTION__);
+					free(g);
 				}
 			}
 			b = source->widthInPixels == -1 ? CW_USEDEFAULT : e.right - e.left;
@@ -858,22 +875,24 @@ static int add_info_about_window_win32(struct wm_add_window_parameters_t* parame
 			{
 				int e;
 				getlasterror_to_string(&e, NULL);
-				char f[e];
+				//char f[e];
+				char* f = malloc(e);
 				getlasterror_to_string(&e, f);
 				
 				on_printf(stderr, "error: %s in %s\n", f, __FUNCTION__);
+				free(f);
 			}
 			
 			break;
 		}
 		
+		infoAboutWindow->win32.hwnd.a = hwnd.a;
+		
 		progress = EAddInfoAboutWindowWin32Progress_CreateWindowA;
 	} while(0);
 	if(progress != EAddInfoAboutWindowWin32Progress_All)
 	{
-		struct info_about_window_t a;
-		a.win32.hwnd.a = hwnd.a;
-		remove_info_about_window_win32(progress, &a);
+		remove_info_about_window_win32(progress, infoAboutWindow);
 		
 		return 0;
 	}
@@ -886,7 +905,7 @@ static int add_info_about_window_win32(struct wm_add_window_parameters_t* parame
 enum
 {
 	EAddInfoAboutWindowXlibProgress_XCreateWindow = 1,
-	EAddInfoAboutWindowXlibProgress_XSetWMProtocols = 2
+	EAddInfoAboutWindowXlibProgress_XSetWMProtocols
 };
 #define EAddInfoAboutWindowXlibProgress_All EAddInfoAboutWindowXlibProgress_XSetWMProtocols
 
@@ -939,10 +958,7 @@ static int add_info_about_window_xlib(struct wm_add_window_parameters_t* paramet
 		// NOTE: https://stackoverflow.com/questions/1157364/intercept-wm-delete-window-on-x11
 		if(XSetWMProtocols(xlib.display.a, window.a, &xlib.wmdeletewindow.a, 1) == 0)
 		{
-			if(on_print != NULL)
-			{
-				on_printf(stderr, "error: XSetWMProtocols == 0 in %s\n", __FUNCTION__);
-			}
+			on_printf2(stderr, "error: XSetWMProtocols == 0 in %s\n", __FUNCTION__);
 			break;
 		}
 		
@@ -1091,10 +1107,12 @@ static void remove_info_about_window_win32(int progress, struct info_about_windo
 			{
 				int b;
 				getlasterror_to_string(&b, NULL);
-				char c[b];
+				//char c[b];
+				char* c = malloc(b);
 				getlasterror_to_string(&b, c);
 				
 				on_printf(stdout, "warning: %s in %s\n", c, __FUNCTION__);
+				free(c);
 			}
 		}
 		
@@ -1241,10 +1259,12 @@ void close_info_about_window_win32(struct info_about_window_t* a)
 		{
 			int a;
 			getlasterror_to_string(&a, NULL);
-			char b[a];
+			//char b[a];
+			char* b = malloc(a);
 			getlasterror_to_string(&a, b);
 			
 			on_printf(stderr, "error: %s in %s\n", b, __FUNCTION__);
+			free(b);
 		}
 	}
 }
@@ -1602,13 +1622,15 @@ static void poll_win32()
 				{
 					int d;
 					getlasterror_to_string(&d, NULL);
-					char e[d];
+					//char e[d];
+					char* e = malloc(d);
 					getlasterror_to_string(&d, e);
 										
 					on_printf(stdout, "warning: %s in %s\n", e, __FUNCTION__);
 					// ^
 					// warning here as assuming this doesn't per se mean..
 					// .. program exit?
+					free(e);
 				}
 				break;
 				// ^

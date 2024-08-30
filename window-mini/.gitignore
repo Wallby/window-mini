@@ -2,3 +2,14 @@
 *.o
 *.lib
 *.a
+
+# visual studio
+.vs/
+x64/
+test/
+test2/
+window-mini/
+window-mini2/
+*.vcxproj.user
+# ALL_TESTS.vcxproj.user stores using ALL_TESTS.bat
+!ALL_TESTS.vcxproj.user

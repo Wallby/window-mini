@@ -37,6 +37,7 @@ struct wm_info_t
 void wm_set_on_print(void(*a)(char*, FILE*));
 void wm_unset_on_print();
 
+#ifndef WINDOW_MINI_HPP
 // NOTE: returns 1 if succeeded
 //       returns 0 if failed
 //       returns -1 if no code was executed
@@ -44,6 +45,7 @@ int wm_load();
 // NOTE: returns 1 if succeeded
 //       returns -1 no code was executed
 int wm_unload();
+#endif
 
 // NOTE: returns 1 if succeeded
 //       returns -1 if no code was executed
@@ -71,11 +73,12 @@ struct wm_window_source_t
 	char* title; //< if == NULL.. title == ""
 	int bFullscreen;
 };
-static struct wm_window_source_t wm_window_source_default = { .minWidthInPixels = -1, .minHeightInPixels = -1, .maxWidthInPixels = -1, .maxHeightInPixels = -1, .widthInPixels = -1, .heightInPixels = -1, .title = NULL, .bFullscreen = 0 };
+//static struct wm_window_source_t wm_window_source_default = { .minWidthInPixels = -1, .minHeightInPixels = -1, .maxWidthInPixels = -1, .maxHeightInPixels = -1, .widthInPixels = -1, .heightInPixels = -1, .title = NULL, .bFullscreen = 0 };
+static struct wm_window_source_t wm_window_source_default = { -1, -1, -1, -1, -1, -1, NULL, 0 };
 
 struct wm_info_about_window_t
 {
-#if defined(__WIN32)
+#if defined(_WIN32)
 	struct
 	{
 		struct
@@ -120,7 +123,8 @@ struct wm_add_window_parameters_t
 {
 	int flags; //< 0 or one or more of EWMAddWindowParametersFlag
 };
-static struct wm_add_window_parameters_t wm_add_window_parameters_default = { .flags = 0 };
+//static struct wm_add_window_parameters_t wm_add_window_parameters_default = { .flags = 0 };
+static struct wm_add_window_parameters_t wm_add_window_parameters_default = { 0 };
 
 // NOTE: returns 1 if succeeded
 //       returns 0 if failed

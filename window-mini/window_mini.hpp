@@ -2,9 +2,18 @@
 
 extern "C"
 {
+#define WINDOW_MINI_HPP
 #include "window_mini.h"
 }
 
+
+bool wm_load2();
+#define wm_load wm_load2
+
+bool wm_unload2();
+#define wm_unload wm_unload2
+
+//*****************************************************************************
 
 class WMWindow
 {
@@ -32,7 +41,7 @@ public:
 	bool bFullscreen;
 	
 	// struct wm_info_about_window_t..
-#if defined(__WIN32)
+#if defined(_WIN32)
 	struct
 	{
 		struct

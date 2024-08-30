@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 	
 	do
 	{
-		if(wm_load() != 1)
+		if(!wm_load())
 		{
 			fputs("error: wm_load() != 1\n", stderr);
 			break;
